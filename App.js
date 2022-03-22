@@ -4,9 +4,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LOCATION_TASK_NAME = 'background-location-task';
-
-let positions = [];
+const LOCATION_TASK_NAME = 'backgroundLocationr';
 
 const requestPermissions = async () => {
   const { status } = await Location.requestBackgroundPermissionsAsync();
@@ -14,8 +12,8 @@ const requestPermissions = async () => {
     console.log("Start")
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.High,
-      timeInterval:5000,
-      distanceInterval: 1
+      /* timeInterval:5000, */
+      distanceInterval: 10
     });
   }
 };
@@ -23,8 +21,7 @@ const requestPermissions = async () => {
 const stopTraking = async () => {
   try {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-    const jsonLocations = JSON.stringify(positions)
-    await AsyncStorage.setItem('Locations', jsonLocations);
+    
   } catch ( error ) {
     console.log( error )
   }
@@ -36,8 +33,9 @@ const getPositions = async () => {
   console.log("getting")
   try {
     const jsonSavedLocations = await AsyncStorage.getItem('Locations')
-    console.log(jsonSavedLocations)
     console.log( jsonSavedLocations != null ? JSON.parse(jsonSavedLocations) : null )
+    console.log("Cantidad total de posiciones registradas: ",jsonSavedLocations != null ? JSON.parse(jsonSavedLocations).length : null )
+    await AsyncStorage.clear()
   } catch ( error ) {
     console.log( error )
   }
@@ -58,20 +56,34 @@ const PermissionsButton = () => (
   </>
 );
 
-TaskManager.defineTask(LOCATION_TASK_NAME, ({ data, error }) => {
+TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
     // Error occurred - check `error.message` for more details.
     console.log( error )
     return;
   }
   if (data) {
-    const { locations } = data;
-    positions = [
-      ...positions,
-      ...locations
-    ]
-    console.log( "posiciones: ", positions )
-    console.log( "Cantidad de posiciones: ", positions.length )
+    try {
+      const { locations } = data;
+      const pos = await AsyncStorage.getItem('Locations');
+
+      if (pos === null) {
+        
+        const newPos = locations[0].coords
+        await AsyncStorage.setItem('Locations', JSON.stringify([newPos]))
+      } else {
+        const newPos = locations[0].coords
+        const existentPos = await AsyncStorage.getItem('Locations');
+        /* console.log( "Existent pos: ", existentPos ) */
+        const parseexistentPos = JSON.parse(existentPos)
+        const setNewPos = [...parseexistentPos, newPos]
+        await AsyncStorage.setItem('Locations', JSON.stringify(setNewPos))
+        console.log("SetNewPos: ", setNewPos )
+      }
+      /* console.log(pos) */
+    } catch ( error ) {
+      console.log( error )
+    }
   }
 });
 
